@@ -1,0 +1,23 @@
+name: halic-server
+
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: randevu
+    ports:
+      - "5492:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025" # SMTP Portu
+      - "8025:8025" # Web Arayüzü
+
+volumes:
+  postgres_data:

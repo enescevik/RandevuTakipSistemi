@@ -1,0 +1,20 @@
+<Project>
+
+  <ItemGroup>
+    <!-- 
+        If you're having issues with packages not being found,
+        please run `nuget restore -NoCache`
+        -->
+  
+    <!-- Nuget -->
+    <PackageReference Update="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0"/>
+    <PackageReference Update="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="9.0.0"/>
+    <PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="9.0.0"/>
+    <PackageReference Update="Microsoft.IdentityModel.Tokens" Version="8.2.1"/>
+    <PackageReference Update="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.1"/>
+    <PackageReference Update="System.IdentityModel.Tokens.Jwt" Version="8.2.1"/>
+
+  </ItemGroup>
+
+</Project>
+  

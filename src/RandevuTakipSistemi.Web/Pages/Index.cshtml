@@ -1,0 +1,216 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Takvim";
+    var appointmentsJson = System.Text.Json.JsonSerializer.Serialize(Model.Appointments);
+}
+
+<div id="calendar"></div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="errorToast" class="toast align-items-center text-bg-danger" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <span id="toastMessage">Bir hata oluştu!</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Kapat"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade @TempData["ModalState"]" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Index?handler=AddEvent">
+                <input type="hidden" name="__RequestVerificationToken" value="@Model.RequestVerificationToken" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalLabel">Randevu Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="eventId" name="Appointment.Id"
+                           value="@Model.Appointment?.Id"/>
+
+                    <div class="mb-3">
+                        <label for="eventTitle" class="form-label">Başlık</label>
+                        <input type="text" class="form-control" id="eventTitle" name="Appointment.Title" required
+                               value="@Model.Appointment?.Title"/>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventStart" class="form-label">Başlangıç Tarihi ve Saati</label>
+                        <input type="datetime-local" class="form-control" id="eventStart" name="Appointment.StartDate" required
+                               value="@Model.Appointment?.StartDate.ToString("yyyy-MM-ddTHH:mm")"/>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventEnd" class="form-label">Bitiş Tarihi ve Saati</label>
+                        <input type="datetime-local" class="form-control" id="eventEnd" name="Appointment.EndDate" required
+                               value="@Model.Appointment?.EndDate.ToString("yyyy-MM-ddTHH:mm")"/>
+                    </div>
+
+                    <!-- Bana Hatırlat -->
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="Appointment.AddReminder" value="false" id="reminder" />
+                        <input class="form-check-input" type="checkbox" id="addReminder"
+                               value="true" @(Model.Appointment?.AddReminder == true ? "checked" : "")/>
+                        <label class="form-check-label" for="addReminder">Bana Hatırlat</label>
+                    </div>
+
+                    <!-- Hatırlatma Alanı -->
+                    <div id="reminderDetails" style="display: none;">
+                        <div class="mb-3">
+                            <label for="notificationMessage" class="form-label">Bildirim Mesajı</label>
+                            <textarea class="form-control" id="notificationMessage" name="Appointment.NotificationMessage"
+                                >@Model.Appointment?.NotificationMessage</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notificationDate" class="form-label">Bildirim Tarihi ve Saati</label>
+                            <input type="datetime-local" class="form-control" id="notificationDate" name="Appointment.NotificationDate"
+                                   value="@Model.Appointment?.NotificationDate?.ToString("yyyy-MM-ddTHH:mm")"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger" id="deleteEventButton"
+                            style="@(Model.Appointment?.Id > 0 ? "" : "display: none;")"
+                            asp-page="/Index" asp asp-page-handler="DeleteEvent">Sil</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary" id="saveEventButton"
+                            asp-page="/Index" asp-page-handler="AddEvent">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            const modalState = '@TempData["ModalState"]';
+
+            if (modalState === 'show') {
+                const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+                modal.show();
+            }
+            
+            const errorMessage = '@TempData["ErrorMessage"]';
+            if (errorMessage) {
+                const toastMessage = document.getElementById('toastMessage');
+                toastMessage.textContent = errorMessage;
+
+                const toastElement = document.getElementById('errorToast');
+                const toast = new bootstrap.Toast(toastElement);
+                toast.show();
+            }
+
+            const calendarEl = document.getElementById('calendar');
+            const appointments = @Html.Raw(appointmentsJson);
+
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                locale: 'tr',
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                selectable: true,
+                editable: true,
+                events: appointments.map(event => ({
+                    id: event.Id,
+                    title: event.Title,
+                    start: event.StartDate,
+                    end: event.EndDate,
+                    extendedProps: {
+                        status: event.Status,
+                        addReminder: event.AddReminder,
+                        notificationMessage: event.NotificationMessage,
+                        notificationDate: event.NotificationDate
+                    }
+                })),
+                height: "100%",
+                contentHeight: "auto",
+                select: function (info) {
+                    const selectedDate = new Date(info.start);
+                    const now = new Date();
+
+                    selectedDate.setHours(now.getHours());
+                    selectedDate.setMinutes(now.getMinutes());
+                    selectedDate.setSeconds(0);
+                    
+                    openModal({
+                        id: null,
+                        title: '',
+                        start: formatDateTime(selectedDate),
+                        end: formatDateTime(selectedDate, 1),
+                        addReminder: false
+                    });
+                },
+                eventClick: function (info) {
+                    const event = info.event;
+                    const extendedProps = event.extendedProps;
+                    console.log(extendedProps);
+                    openModal({
+                        id: event.id,
+                        title: event.title,
+                        start: formatDateTime(event.start),
+                        end: formatDateTime(event.end),
+                        addReminder: extendedProps.addReminder,
+                        notificationMessage: extendedProps.notificationMessage,
+                        notificationDate: extendedProps.notificationDate ? formatDateTime(extendedProps.notificationDate) : null
+                    });
+                }
+            });
+
+            calendar.render();
+
+            document.getElementById('btnAddAppointment').addEventListener('click', function () {
+                openModal({
+                    id: null,
+                    title: '',
+                    start: formatDateTime(new Date()),
+                    end: formatDateTime(new Date(), 1),
+                    addReminder: false
+                });
+            });
+
+            function openModal(event) {
+                console.log(event);
+                const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+                document.getElementById('eventId').value = event.id || 0;
+                document.getElementById('eventTitle').value = event.title || '';
+                document.getElementById('eventStart').value = event.start;
+                document.getElementById('eventEnd').value = event.end;
+                document.getElementById('addReminder').value = event.addReminder || false;
+
+                document.getElementById('reminder').value = event.addReminder || false;
+                document.getElementById('addReminder').value = event.addReminder || false;
+                document.getElementById('addReminder').checked = event.addReminder || false;
+                document.getElementById('notificationMessage').value = event.addReminder ? event.notificationMessage : '';
+                document.getElementById('notificationDate').value = event.addReminder ? event.notificationDate : null;
+                document.getElementById('reminderDetails').style.display = event.addReminder ? 'block' : 'none';
+
+                document.getElementById('deleteEventButton').style.display = event.id ? 'block' : 'none';
+
+                modal.show();
+            }
+
+            document.getElementById('eventModal').addEventListener('shown.bs.modal', function () {
+                document.getElementById('eventTitle').focus();
+            });
+
+            const addReminder = document.getElementById('addReminder');
+            const reminderDetails = document.getElementById('reminderDetails');
+
+            addReminder.addEventListener('change', function () {
+                if (addReminder.checked) {
+                    reminderDetails.style.display = 'block';
+                    document.getElementById('reminder').value = true;
+                } else {
+                    reminderDetails.style.display = 'none';
+                    document.getElementById('reminder').value = false;
+                }
+            });
+        });
+    </script>
+}

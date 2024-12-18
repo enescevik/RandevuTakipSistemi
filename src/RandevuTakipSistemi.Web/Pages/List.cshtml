@@ -1,0 +1,156 @@
+﻿@page
+@using RandevuTakipSistemi.Web.Enums
+@model ListModel
+@{
+    ViewData["Title"] = "Randevu Listesi";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">Randevu Listesi</h2>
+
+    @if (Model.Appointments.Any())
+    {
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Başlık</th>
+                <th>Başlangıç Tarihi</th>
+                <th>Bitiş Tarihi</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+            </tr>
+            </thead>
+            <tbody>
+            @{ var counter = 1; }
+            @foreach (var appointment in Model.Appointments.OrderBy(a => a.StartDate))
+            {
+                <tr>
+                    <td>@(counter++)</td>
+                    <td>@appointment.Title</td>
+                    <td>@appointment.StartDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@appointment.EndDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        @(appointment.Status == AppointmentStatus.Pending
+                            ? "Oluşturuldu"
+                            : appointment.Status == AppointmentStatus.Canceled
+                                ? "İptal Edildi"
+                                : "Tamamlandı")
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="openModal({
+                            id: '@appointment.Id',
+                            title: '@appointment.Title',
+                            start: '@appointment.StartDate.ToString("yyyy-MM-ddTHH:mm")',
+                            end: '@appointment.EndDate.ToString("yyyy-MM-ddTHH:mm")'
+                            })">Düzenle</button>
+                        <form method="post" asp-page-handler="DeleteEvent" style="display:inline;">
+                            <input type="hidden" name="id" value="@appointment.Id"/>
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Bu randevuyu silmek istediğinizden emin misiniz?')">Sil
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="alert alert-warning" role="alert">
+            Henüz hiçbir randevu bulunmamaktadır.
+        </div>
+    }
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="errorToast" class="toast align-items-center text-bg-danger" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <span id="toastMessage">Bir hata oluştu!</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Kapat"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade @TempData["ModalState"]" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Index?handler=AddEvent">
+                <input type="hidden" name="__RequestVerificationToken" value="@Model.RequestVerificationToken" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalLabel">Randevu Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="eventTitle" class="form-label">Başlık</label>
+                        <input type="text" class="form-control" id="eventTitle" name="Appointment.Title" required
+                               value="@Model.Appointment?.Title"/>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventStart" class="form-label">Başlangıç Tarihi ve Saati</label>
+                        <input type="datetime-local" class="form-control" id="eventStart" name="Appointment.StartDate" required
+                               value="@Model.Appointment?.StartDate.ToString("yyyy-MM-ddTHH:mm")"/>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventEnd" class="form-label">Bitiş Tarihi ve Saati</label>
+                        <input type="datetime-local" class="form-control" id="eventEnd" name="Appointment.EndDate" required
+                               value="@Model.Appointment?.EndDate.ToString("yyyy-MM-ddTHH:mm")"/>
+                    </div>
+                    <input type="hidden" id="eventId" name="Appointment.Id"
+                           value="@Model.Appointment?.Id"/>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary" id="saveEventButton"
+                            asp-page="/List" asp-page-handler="AddEvent">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            const modalState = '@TempData["ModalState"]';
+
+            if (modalState === 'show') {
+                const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+                modal.show();
+            }
+            
+            const errorMessage = '@TempData["ErrorMessage"]';
+            if (errorMessage) {
+                const toastMessage = document.getElementById('toastMessage');
+                toastMessage.textContent = errorMessage;
+
+                const toastElement = document.getElementById('errorToast');
+                const toast = new bootstrap.Toast(toastElement);
+                toast.show();
+            }
+
+            document.getElementById('btnAddAppointment').addEventListener('click', function () {
+                openModal({
+                    id: null,
+                    title: '',
+                    start: formatDateTime(new Date()),
+                    end: formatDateTime(new Date(), 1)
+                });
+            });
+        });
+
+        function openModal(event) {
+            const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+            document.getElementById('eventId').value = event.id || 0;
+            document.getElementById('eventTitle').value = event.title || '';
+            document.getElementById('eventStart').value = event.start;
+            document.getElementById('eventEnd').value = event.end;
+            modal.show();
+        }
+    </script>
+}

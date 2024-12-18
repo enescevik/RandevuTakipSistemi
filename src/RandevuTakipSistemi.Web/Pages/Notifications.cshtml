@@ -1,0 +1,60 @@
+﻿@page
+@using RandevuTakipSistemi.Web.Enums
+@model NotificationsModel
+@{
+    ViewData["Title"] = "Bildirim Listesi";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">Bildirim Listesi</h2>
+
+    @if (Model.Appointments.Any())
+    {
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Başlık</th>
+                <th>Başlangıç Tarihi</th>
+                <th>Bitiş Tarihi</th>
+                <th>Bildirim Mesajı</th>
+                <th>Bildirim Tarihi ve Saati</th>
+                <th>Bildirim Durumu</th>
+                <th>Hata Mesajı</th>
+            </tr>
+            </thead>
+            <tbody>
+            @{ var counter = 1; }
+            @foreach (var appointment in Model.Appointments.OrderBy(a => a.StartDate))
+            {
+                <tr>
+                    <td>@(counter++)</td>
+                    <td>@appointment.Title</td>
+                    <td>@appointment.StartDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@appointment.EndDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@appointment.NotificationMessage</td>
+                    <td>@appointment.NotificationDate?.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        @(appointment.NotificationStatus == NotificationStatus.Waiting
+                            ? "Beklemede"
+                            : appointment.NotificationStatus == NotificationStatus.Pending
+                                ? "Gönderiliyor"
+                                : appointment.NotificationStatus == NotificationStatus.Failed
+                                    ? "Gönderilemedi"
+                                    : "Tamamlandı")
+                    </td>
+                    <td>
+                        @(appointment.FailedCount == 0 ? "" : $"{appointment.FailedCount:N0} -> {appointment.LastError}")
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="alert alert-warning" role="alert">
+            Henüz hiçbir bildirim bulunmamaktadır.
+        </div>
+    }
+</div>
